@@ -1,25 +1,127 @@
+mod kernel;
+
 use std::thread::sleep;
 use std::time::Duration;
 use std::{env, process::Command};
 
 use colored_text::Colorize;
-use rand::{random_bool, random_range};
+use kernel::kernel;
+use rand::distr::{Distribution, StandardUniform};
+use rand::{random, random_bool, random_range, Rng};
 
-#[derive(PartialEq, Eq)]
-enum Mode {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TileType {
+    Empty,
+    Col,
     Sand,
     Water,
+    WetSand,
+}
+
+impl Distribution<TileType> for StandardUniform {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> TileType {
+        match rng.random_range(0..=1) {
+            0 => TileType::Sand,
+            _ => TileType::Water,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Tile {
+    tile_type: TileType,
+    value: u8,
+}
+
+impl Tile {
+    fn new_empty() -> Self {
+        Self {
+            tile_type: TileType::Empty,
+            value: 0,
+        }
+    }
+
+    fn new_filled(tile_type: TileType) -> Self {
+        Self {
+            tile_type,
+            value: random_char(),
+        }
+    }
+
+    fn falls(&self) -> bool {
+        match self.tile_type {
+            TileType::Sand | TileType::Water | TileType::WetSand => true,
+            TileType::Empty | TileType::Col => false,
+        }
+    }
+
+    fn slides(&self) -> bool {
+        match self.tile_type {
+            TileType::Sand | TileType::Water => true,
+            TileType::WetSand | TileType::Empty | TileType::Col => false,
+        }
+    }
+
+    fn runs(&self) -> bool {
+        match self.tile_type {
+            TileType::Water => true,
+            TileType::Sand | TileType::WetSand | TileType::Empty | TileType::Col => false,
+        }
+    }
+
+    fn density(&self) -> f64 {
+        match self.tile_type {
+            TileType::Water => 0.2,
+            TileType::Sand => 0.5,
+            TileType::WetSand => 0.7,
+            _ => 0.0,
+        }
+    }
+
+    fn empty(&self) -> bool {
+        self.tile_type == TileType::Empty
+    }
+
+    fn real(&self) -> bool {
+        match self.tile_type {
+            TileType::Empty | TileType::Col => false,
+            _ => true,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Stream {
+    pos: usize,
+    tile_type: TileType,
+}
+
+impl Stream {
+    fn new(width: usize, frame: u32) -> Self {
+        let tile_type = if frame % 300 < 175 {
+            TileType::Sand
+        } else if frame < 225 {
+            random()
+        } else {
+            TileType::Water
+        };
+        Self {
+            pos: random_range(0..width),
+            tile_type,
+        }
+    }
 }
 
 struct State {
-    lines: Vec<Vec<u8>>,
-    streams: Vec<usize>,
+    lines: Vec<Vec<Tile>>,
+    streams: Vec<Stream>,
     width: usize,
+    height: usize,
     windows: Vec<Window>,
     scaling_x: f32,
     scaling_y: f32,
     monitor: String,
-    mode: Mode,
+    frame: u32,
 }
 
 impl State {
@@ -32,46 +134,40 @@ impl State {
     ) -> Self {
         let mut streams = vec![];
         for _ in 0..num_streams {
-            streams.push(random_range(0..width));
+            streams.push(Stream::new(width, 0));
         }
         let args = env::args().collect::<Vec<String>>();
         println!("{:?}", args);
         Self {
-            lines: vec![vec![32; width]; height],
+            lines: vec![vec![Tile::new_empty(); width]; height],
             streams,
             width,
+            height,
             windows: vec![],
             scaling_x,
             scaling_y,
             monitor: get_active().1,
-            mode: match args[1].as_str() {
-                "sand" => Mode::Sand,
-                "water" => Mode::Water,
-                _ => panic!("Invalid mode!"),
-            },
+            frame: 0,
         }
     }
 
     fn print(&self) -> String {
         let mut res = String::new();
-        let mut period = random_range(4..=10);
-        let mut active = false;
         for line in &self.lines {
-            period -= 1;
-            if period == 0 {
-                active = !active;
-                period = random_range(4..=10);
-            }
-            if active && self.mode == Mode::Water {
-                res += String::from_utf8(line.clone())
-                    .unwrap()
-                    .bright_blue()
-                    .as_str();
-            } else {
-                if self.mode == Mode::Water {
-                    res += String::from_utf8(line.clone()).unwrap().blue().as_str();
-                } else {
-                    res += String::from_utf8(line.clone()).unwrap().yellow().as_str();
+            for tile in line {
+                match tile.tile_type {
+                    TileType::Sand => {
+                        res += (tile.value as char).yellow().as_str();
+                    }
+                    TileType::Water => {
+                        res += (tile.value as char).blue().as_str();
+                    }
+                    TileType::WetSand => {
+                        res += (tile.value as char).hex("#987c2f").as_str();
+                    }
+                    TileType::Empty | TileType::Col => {
+                        res += " ";
+                    }
                 }
             }
             res += "\n";
@@ -85,107 +181,43 @@ impl State {
             None => {}
         };
         self.streams.remove(random_range(0..self.streams.len()));
-        self.streams.push(random_range(0..self.width));
-        for i in (0..self.lines.len()).rev() {
-            if i <= 3 {
-                self.lines[3] = vec![32; self.width];
-                for j in 0..self.streams.len() {
-                    let pos = self.streams[j];
-                    self.lines[3][pos] = random_char();
+        self.streams.push(Stream::new(self.width, self.frame));
+        for i in 1..self.height {
+            for j in 0..self.width {
+                let mut found_col = false;
+                for window in &self.windows {
+                    found_col |= window.check_col(j, i - 1, self.scaling_x, self.scaling_y);
                 }
-            } else {
-                let mut new_line = vec![32; self.width];
-                let mut locked = vec![false; self.width];
-                for j in 0..self.width {
-                    let mut found_col = false;
-                    for window in &self.windows {
-                        if window.check_col(j, i, self.scaling_x, self.scaling_y) {
-                            found_col = true;
-                            break;
-                        }
-                    }
-                    if found_col {
-                        if !locked[j] {
-                            new_line[j] = 32;
-                        }
-                        continue;
-                    }
-                    for window in &self.windows {
-                        if window.check_col(j, i + 1, self.scaling_x, self.scaling_y) {
-                            found_col = true;
-                            break;
-                        }
-                    }
-                    if found_col && self.lines[i][j] != 32 && self.mode == Mode::Water {
-                        let idx = if self.lines[i][j] << 7 >> 7 == 0 {
-                            j as i32 - 1
-                        } else {
-                            j as i32 + 1
-                        };
-                        if idx < 0 || idx >= self.width as i32 {
-                            if !locked[j] {
-                                new_line[j] = 32;
-                            }
-                            continue;
-                        }
-                        if !locked[idx as usize] {
-                            new_line[idx as usize] = self.lines[i][j];
-                            locked[idx as usize] = true;
-                        }
-                    } else {
-                        if !locked[j] {
-                            let free = (self.lines[i][j] == 32
-                                || i == self.lines.len() - 1
-                                || (self.lines[i + 1][j] == 32 && {
-                                    let mut res = true;
-                                    for window in &self.windows {
-                                        if window.check_col(
-                                            j,
-                                            i + 1,
-                                            self.scaling_x,
-                                            self.scaling_y,
-                                        ) {
-                                            res = false;
-                                        }
-                                    }
-                                    res
-                                }))
-                                && self.mode == Mode::Sand;
-                            if self.lines[i - 1][j] != 32
-                                && if self.mode == Mode::Water { true } else { free }
-                            {
-                                new_line[j] = self.lines[i - 1][j];
-                                locked[j] = true;
-                                self.lines[i - 1][j] = 32;
-                            } else if j > 0
-                                && self.lines[i - 1][j - 1] != 32
-                                && self.lines[i][j - 1] != 32
-                                && free
-                            {
-                                new_line[j] = self.lines[i - 1][j - 1];
-                                locked[j] = true;
-                                self.lines[i - 1][j - 1] = 32;
-                            } else if j < self.width - 1
-                                && self.lines[i - 1][j + 1] != 32
-                                && self.lines[i][j + 1] != 32
-                                && free
-                            {
-                                new_line[j] = self.lines[i - 1][j + 1];
-                                locked[j] = true;
-                                self.lines[i - 1][j + 1] = 32;
-                            } else if i < self.lines.len() - 1 && free {
-                                new_line[j] = self.lines[i][j];
-                            } else if if self.mode == Mode::Sand { free } else { true } {
-                                new_line[j] = 32;
-                            } else {
-                                new_line[j] = self.lines[i][j];
-                            }
-                        }
-                    }
+                if found_col {
+                    self.lines[i][j].tile_type = TileType::Col;
+                    continue;
+                } else if self.lines[i][j].tile_type == TileType::Col {
+                    self.lines[i][j].tile_type = TileType::Empty;
                 }
-                self.lines[i] = new_line;
             }
         }
+        for i in (1..self.height).rev() {
+            if i <= 3 {
+                self.lines[3] = vec![Tile::new_empty(); self.width];
+                for j in 0..self.streams.len() {
+                    let stream = self.streams[j];
+                    self.lines[3][stream.pos] = Tile::new_filled(stream.tile_type);
+                }
+            } else {
+                for j in 0..self.width - 1 {
+                    let ll = self.lines[i][j];
+                    let lr = self.lines[i][j + 1];
+                    let ul = self.lines[i - 1][j];
+                    let ur = self.lines[i - 1][j + 1];
+                    let (ll, lr, ul, ur) = kernel(ll, lr, ul, ur);
+                    self.lines[i][j] = ll;
+                    self.lines[i][j + 1] = lr;
+                    self.lines[i - 1][j] = ul;
+                    self.lines[i - 1][j + 1] = ur;
+                }
+            }
+        }
+        self.frame += 1;
     }
 }
 
@@ -203,18 +235,14 @@ struct Window {
 
 impl Window {
     fn check_col(&self, x: usize, y: usize, scaling_x: f32, scaling_y: f32) -> bool {
-        let x_scaled = if self.x as f32 > scaling_x {
-            self.x as f32 / scaling_x - 1.0
-        } else {
-            0.0
-        };
+        let x_scaled = self.x as f32 / scaling_x;
         let y_scaled = self.y as f32 / scaling_y;
-        let width = self.width as f32 / scaling_x + 1.0;
+        let width = self.width as f32 / scaling_x;
         let height = self.height as f32 / scaling_y;
-        if x as f32 <= x_scaled || x as f32 >= x_scaled + width {
+        if (x as f32) < x_scaled || (x as f32) > x_scaled + width {
             return false;
         }
-        if y as f32 <= y_scaled || y as f32 >= y_scaled + height {
+        if (y as f32) < y_scaled || (y as f32) > y_scaled + height {
             return false;
         }
         return true;
@@ -327,6 +355,6 @@ fn main() -> std::io::Result<()> {
     loop {
         state.step();
         println!("{}", state.print());
-        sleep(Duration::from_millis(30));
+        sleep(Duration::from_millis(10));
     }
 }
