@@ -3,7 +3,7 @@
     "position": "left",
     "modules-left": ["hyprland/workspaces"],
     "modules-center": ["hyprland/window"],
-    "modules-right": ["custom/superon", "custom/superoff", "battery", "clock"],
+    "modules-right": ["custom/rain", "custom/sand", "custom/normal", "battery", "clock"],
     "hyprland/workspaces": {
         "format": "{icon}",
         "format-icons": {
@@ -31,12 +31,16 @@
     "clock": {
         "format-alt": "{:%a, %d. %b  %H:%M}"
     },
-    "custom/superon": {
-        "format": "SUP",
-        "on-click": "~/dev/i3_matrix/launch_wrapper.sh"
+    "custom/rain": {
+        "format": "RAIN",
+        "on-click": "~/.config/hyprmatrix/launch_wrapper_rain.sh"
     },
-    "custom/superoff": {
-        "format": "NOR",
+    "custom/sand": {
+        "format": "SAND",
+        "on-click": "~/.config/hyprmatrix/launch_wrapper_sand.sh"
+    },
+    "custom/normal": {
+        "format": "NONE",
         "on-click": "killall kitty"
     }
 }

@@ -1,6 +1,6 @@
-use std::process::Command;
 use std::thread::sleep;
 use std::time::Duration;
+use std::{env, process::Command};
 
 use colored_text::Colorize;
 use rand::{random_bool, random_range};
@@ -11,8 +11,6 @@ enum Mode {
     Water,
 }
 
-const MODE: Mode = Mode::Sand;
-
 struct State {
     lines: Vec<Vec<u8>>,
     streams: Vec<usize>,
@@ -21,6 +19,7 @@ struct State {
     scaling_x: f32,
     scaling_y: f32,
     monitor: String,
+    mode: Mode,
 }
 
 impl State {
@@ -35,6 +34,8 @@ impl State {
         for _ in 0..num_streams {
             streams.push(random_range(0..width));
         }
+        let args = env::args().collect::<Vec<String>>();
+        println!("{:?}", args);
         Self {
             lines: vec![vec![32; width]; height],
             streams,
@@ -43,6 +44,11 @@ impl State {
             scaling_x,
             scaling_y,
             monitor: get_active().1,
+            mode: match args[1].as_str() {
+                "sand" => Mode::Sand,
+                "water" => Mode::Water,
+                _ => panic!("Invalid mode!"),
+            },
         }
     }
 
@@ -56,13 +62,13 @@ impl State {
                 active = !active;
                 period = random_range(4..=10);
             }
-            if active && MODE == Mode::Water {
+            if active && self.mode == Mode::Water {
                 res += String::from_utf8(line.clone())
                     .unwrap()
                     .bright_blue()
                     .as_str();
             } else {
-                if MODE == Mode::Water {
+                if self.mode == Mode::Water {
                     res += String::from_utf8(line.clone()).unwrap().blue().as_str();
                 } else {
                     res += String::from_utf8(line.clone()).unwrap().yellow().as_str();
@@ -110,7 +116,7 @@ impl State {
                             break;
                         }
                     }
-                    if found_col && self.lines[i][j] != 32 && MODE == Mode::Water {
+                    if found_col && self.lines[i][j] != 32 && self.mode == Mode::Water {
                         let idx = if self.lines[i][j] << 7 >> 7 == 0 {
                             j as i32 - 1
                         } else {
@@ -144,9 +150,9 @@ impl State {
                                     }
                                     res
                                 }))
-                                && MODE == Mode::Sand;
+                                && self.mode == Mode::Sand;
                             if self.lines[i - 1][j] != 32
-                                && if MODE == Mode::Water { true } else { free }
+                                && if self.mode == Mode::Water { true } else { free }
                             {
                                 new_line[j] = self.lines[i - 1][j];
                                 locked[j] = true;
@@ -167,10 +173,12 @@ impl State {
                                 new_line[j] = self.lines[i - 1][j + 1];
                                 locked[j] = true;
                                 self.lines[i - 1][j + 1] = 32;
-                            } else if i < self.lines.len() - 1 {
+                            } else if i < self.lines.len() - 1 && free {
                                 new_line[j] = self.lines[i][j];
-                            } else {
+                            } else if if self.mode == Mode::Sand { free } else { true } {
                                 new_line[j] = 32;
+                            } else {
+                                new_line[j] = self.lines[i][j];
                             }
                         }
                     }
