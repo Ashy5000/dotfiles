@@ -1,0 +1,11 @@
+* {
+    font-family: 'JetBrainsMono Nerd Font Mono';
+    background-color: #1a1b26;
+    color: #7aa2f7;
+}
+
+#workspaces button:hover {
+    background: none;
+    border-color: transparent;
+    box-shadow: inherit;
+}

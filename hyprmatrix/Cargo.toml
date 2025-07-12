@@ -1,0 +1,9 @@
+[package]
+name = "i3_matrix"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rand = "0.9.1"
+"term_size" = "0.3.2"
+"colored_text" = "0.3.0"

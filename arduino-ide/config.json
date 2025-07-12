@@ -1,0 +1,24 @@
+{
+	"windowstate": {
+		"isFullScreen": false,
+		"isMaximized": false,
+		"width": 921,
+		"height": 1104,
+		"x": 967,
+		"y": 46,
+		"frame": true,
+		"screenLayout": "0:0:1920:1200"
+	},
+	"workspaces": [
+		{
+			"x": 967,
+			"y": 46,
+			"width": 921,
+			"height": 1104,
+			"isMaximized": false,
+			"isFullScreen": false,
+			"file": "/home/ashy5000/dev/spectrometer/arduino/spectrometer",
+			"time": 1748276699403
+		}
+	]
+}
