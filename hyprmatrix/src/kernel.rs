@@ -33,15 +33,16 @@ pub(crate) fn kernel(ll_p: Tile, lr_p: Tile, ul_p: Tile, ur_p: Tile) -> (Tile, T
         ll.tile_type = TileType::WetSand;
         lr.tile_type = TileType::Empty
     }
-    if ll.runs() && lr.empty() && random_bool(0.5) {
+    if ll.tile_type == TileType::Magma && ul.tile_type == TileType::WetSand {
+        ul.tile_type = TileType::Sand;
+    }
+    if ll.tile_type == TileType::Magma && ul.tile_type == TileType::Sand {
+        ul.tile_type = TileType::Stone;
+    }
+    if random_bool((1.0 - ll.viscosity()) * (1.0 - lr.viscosity()) * 0.2) {
         let tmp = ll;
         ll = lr;
         lr = tmp;
-    }
-    if lr.runs() && ll.empty() && random_bool(0.5) {
-        let tmp = lr;
-        lr = ll;
-        ll = tmp;
     }
     if ll.slides() && ul.slides() && (lr.empty() || should_sink(ul.density(), lr.density())) {
         let tmp = lr;

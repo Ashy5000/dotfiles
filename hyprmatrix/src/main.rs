@@ -16,6 +16,8 @@ enum TileType {
     Sand,
     Water,
     WetSand,
+    Magma,
+    Stone,
 }
 
 impl Distribution<TileType> for StandardUniform {
@@ -50,30 +52,41 @@ impl Tile {
 
     fn falls(&self) -> bool {
         match self.tile_type {
-            TileType::Sand | TileType::Water | TileType::WetSand => true,
+            TileType::Sand
+            | TileType::Water
+            | TileType::WetSand
+            | TileType::Magma
+            | TileType::Stone => true,
             TileType::Empty | TileType::Col => false,
         }
     }
 
     fn slides(&self) -> bool {
         match self.tile_type {
-            TileType::Sand | TileType::Water => true,
-            TileType::WetSand | TileType::Empty | TileType::Col => false,
+            TileType::Sand | TileType::Water | TileType::Magma => true,
+            TileType::WetSand | TileType::Stone | TileType::Empty | TileType::Col => false,
         }
     }
 
-    fn runs(&self) -> bool {
+    fn viscosity(&self) -> f64 {
         match self.tile_type {
-            TileType::Water => true,
-            TileType::Sand | TileType::WetSand | TileType::Empty | TileType::Col => false,
+            TileType::Water => 0.0,
+            TileType::Sand => 0.8,
+            TileType::WetSand => 0.85,
+            TileType::Magma => 0.9,
+            TileType::Stone => 0.9,
+            TileType::Empty => 0.0,
+            TileType::Col => 1.0,
         }
     }
 
     fn density(&self) -> f64 {
         match self.tile_type {
             TileType::Water => 0.2,
-            TileType::Sand => 0.5,
-            TileType::WetSand => 0.7,
+            TileType::Sand => 0.4,
+            TileType::WetSand => 0.6,
+            TileType::Stone => 0.8,
+            TileType::Magma => 1.0,
             _ => 0.0,
         }
     }
@@ -98,12 +111,14 @@ struct Stream {
 
 impl Stream {
     fn new(width: usize, frame: u32) -> Self {
-        let tile_type = if frame % 300 < 175 {
+        let tile_type = if frame < 50 {
+            TileType::Magma
+        } else if frame < 1000 {
             TileType::Sand
-        } else if frame < 225 {
-            random()
-        } else {
+        } else if frame % 500 < 100 {
             TileType::Water
+        } else {
+            TileType::Empty
         };
         Self {
             pos: random_range(0..width),
@@ -157,13 +172,19 @@ impl State {
             for tile in line {
                 match tile.tile_type {
                     TileType::Sand => {
-                        res += (tile.value as char).yellow().as_str();
+                        res += (tile.value as char).hex("#3d59a1").as_str();
                     }
                     TileType::Water => {
-                        res += (tile.value as char).blue().as_str();
+                        res += (tile.value as char).hex("#7aa2f7").as_str();
                     }
                     TileType::WetSand => {
-                        res += (tile.value as char).hex("#987c2f").as_str();
+                        res += (tile.value as char).hex("#394b70").as_str();
+                    }
+                    TileType::Magma => {
+                        res += (tile.value as char).hex("#0db9d7").as_str();
+                    }
+                    TileType::Stone => {
+                        res += (tile.value as char).hex("#89ddff").as_str();
                     }
                     TileType::Empty | TileType::Col => {
                         res += " ";
