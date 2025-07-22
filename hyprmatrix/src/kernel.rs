@@ -1,4 +1,4 @@
-use crate::{Tile, TileType};
+use crate::{random_char, Tile, TileType};
 use rand::random_bool;
 
 pub(crate) fn should_sink(a: f64, b: f64) -> bool {
@@ -25,11 +25,11 @@ pub(crate) fn kernel(ll_p: Tile, lr_p: Tile, ul_p: Tile, ur_p: Tile) -> (Tile, T
         ll.tile_type = TileType::WetSand;
         ul.tile_type = TileType::Empty;
     }
-    if ll.tile_type == TileType::Water && lr.tile_type == TileType::Sand {
+    if ll.tile_type == TileType::Water && lr.tile_type == TileType::Sand && random_bool(0.2) {
         lr.tile_type = TileType::WetSand;
         ll.tile_type = TileType::Empty
     }
-    if lr.tile_type == TileType::Water && ll.tile_type == TileType::Sand {
+    if lr.tile_type == TileType::Water && ll.tile_type == TileType::Sand && random_bool(0.2) {
         ll.tile_type = TileType::WetSand;
         lr.tile_type = TileType::Empty
     }
@@ -38,6 +38,16 @@ pub(crate) fn kernel(ll_p: Tile, lr_p: Tile, ul_p: Tile, ur_p: Tile) -> (Tile, T
     }
     if ll.tile_type == TileType::Magma && ul.tile_type == TileType::Sand {
         ul.tile_type = TileType::Stone;
+    }
+    if ll.tile_type == TileType::WetSand && lr.tile_type == TileType::Empty && random_bool(0.2) {
+        ll.tile_type = TileType::Sand;
+        lr.tile_type = TileType::Water;
+        lr.value = random_char();
+    }
+    if lr.tile_type == TileType::WetSand && ll.tile_type == TileType::Empty && random_bool(0.2) {
+        lr.tile_type = TileType::Sand;
+        ll.tile_type = TileType::Water;
+        ll.value = random_char();
     }
     if random_bool((1.0 - ll.viscosity()) * (1.0 - lr.viscosity()) * 0.2) {
         let tmp = ll;

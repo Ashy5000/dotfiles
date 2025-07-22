@@ -1,11 +1,30 @@
 * {
     font-family: 'JetBrainsMono Nerd Font Mono';
-    background-color: #1a1b26;
-    color: #7aa2f7;
+    background-color: transparent;
+    margin-left: 5px;
+    margin-right: 5px;
 }
 
 #workspaces button:hover {
     background: none;
     border-color: transparent;
     box-shadow: inherit;
+}
+#battery, #workspaces, #window, #clock, #custom-falling, #custom-normal {
+    margin-top: 10px;
+}
+
+#battery, #workspaces, #window, #clock {
+    background-color: #5577aa;
+    border-radius: 10px;
+}
+
+#custom-falling, #custom-normal {
+    color: #5577aa;
+    font-size: 19;
+}
+
+#workspaces > * {
+    margin: 0px;
+    padding: 0px;
 }

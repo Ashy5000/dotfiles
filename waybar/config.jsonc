@@ -1,17 +1,18 @@
 {
     "layer": "top",
-    "position": "left",
+    "position": "top",
+    "height": 34,
     "modules-left": ["hyprland/workspaces"],
     "modules-center": ["hyprland/window"],
     "modules-right": ["custom/falling", "custom/normal", "battery", "clock"],
     "hyprland/workspaces": {
         "format": "{icon}",
         "format-icons": {
-            "1": "I",
-            "2": "II",
-            "3": "III",
-            "4": "IV",
-            "5": "V",
+            "1": "Ⅰ",
+            "2": "Ⅱ",
+            "3": "Ⅲ",
+            "4": "Ⅳ",
+            "5": "Ⅴ",
             "default": "."
         },
         "persistent-workspaces": {
@@ -20,23 +21,21 @@
         }
     },
     "hyprland/window": {
-        "rotate": 90,
         "max-length": 20
     },
     "battery": {
         "format": "{capacity}% {icon}",
-        "format-icons": ["[|....]", "[||...]", "[|||..]", "[||||.]", "[|||||]"],
-        "rotate": 90
+        "format-icons": ["[|....]", "[||...]", "[|||..]", "[||||.]", "[|||||]"]
     },
     "clock": {
-        "format-alt": "{:%a, %d. %b  %H:%M}"
+        "format-alt": "{:%a, %d. %b %H:%M}"
     },
     "custom/falling": {
-        "format": "FALL",
+        "format": "◉",
         "on-click": "~/.config/hyprmatrix/launch_wrapper.sh"
     },
     "custom/normal": {
-        "format": "NONE",
+        "format": "○",
         "on-click": "killall kitty"
     }
 }
