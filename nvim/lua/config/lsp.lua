@@ -19,34 +19,41 @@ vim.keymap.set(
   { silent = true, buffer = bufnr }
 )
 
-local lspconfig = require('lspconfig')
-lspconfig.clangd.setup({
+vim.lsp.config('clangd', {
         cmd = {
           "clangd",
           "--header-insertion=never",
           "--completion-style=detailed",
-          "--function-arg-placeholders",
           "--rename-file-limit=0",
           "--background-index",
           "--background-index-priority=normal",
         },
         filetypes = { "c", "cpp", "objc", "objcpp" },
 })
+vim.lsp.enable('clangd')
 
-lspconfig.zls.setup {
+zig_root = function(bufnr, on_dir)
+	on_dir(vim.fs.root(bufnr, { 'build.zig', '.git' }))
+end
+
+vim.lsp.config('zls', {
   cmd = { "zls" },
   filetypes = { "zig", "zir" },
-  root_dir = lspconfig.util.root_pattern("build.zig", ".git") or vim.loop.cwd,
+  root_dir = zig_root,
   single_file_support = true,
-}
+})
+vim.lsp.enable('zls')
 
 vim.diagnostic.enable = true
 vim.diagnostic.config({
-	virtual_lines = true,
+	virtual_lines = false,
+	signs = false,
 })
 
 vim.keymap.set("n", "gd", vim.lsp.buf.declaration)
 vim.keymap.set("n", "<leader>fo", vim.lsp.buf.format)
+vim.keymap.set("n", "<leader>fr", vim.lsp.buf.rename)
+vim.keymap.set("n", "<leader>e", function() vim.diagnostic.open_float(nil, {focus=false}) end)
 
 local cmp = require'cmp'
 
@@ -121,7 +128,15 @@ matching = { disallow_symbol_nonprefix_matching = false }
 
 -- Set up lspconfig.
 local capabilities = require('cmp_nvim_lsp').default_capabilities()
--- Replace <YOUR_LSP_SERVER> with each lsp server you've enabled.
-require('lspconfig')['<YOUR_LSP_SERVER>'].setup {
-capabilities = capabilities
-}
+
+vim.lsp.config('hls', {
+	filetypes = { 'haskell', 'lhaskell', 'cabal' },
+})
+vim.lsp.enable('hls')
+
+vim.api.nvim_create_autocmd("BufWritePre", {
+	pattern = "*",
+	callback = function(args)
+		vim.lsp.buf.format()
+	end,
+})
